@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageId>SharpSeries</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>SharpSeries Contributors</Authors>
+    <Description>Pure C# ADO.NET data provider for IBM i Db2 (AS/400, System i). Implements the DRDA wire protocol directly in managed C# with no proprietary IBM client dependencies.</Description>
+    <PackageLicenseExpression>IPL-1.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/tomdertechie/SharpSeries</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tomdertechie/SharpSeries.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>IBM;iSeries;AS400;Db2;DRDA;ADO.NET;database;provider</PackageTags>
+    <PackageReleaseNotes>Initial release</PackageReleaseNotes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\USERGUIDE.md" Pack="true" PackagePath="\" />
+    <None Include="..\LICENSE" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
