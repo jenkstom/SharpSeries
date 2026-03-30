@@ -36,7 +36,7 @@ namespace SampleIseriesWriter
             string connectionString = $"Server={system};" +
                                       $"User ID={user};" +
                                       $"Password={password};" +
-                                      $"Naming=SQL;CONNTYPE=2";
+                                      $"Naming=SQL";
 
             Console.WriteLine("Connecting to IBM iSeries in write mode...");
 

@@ -9,6 +9,7 @@ public class Db2Connection : DbConnection
 {
     private Db2ConnectionStringBuilder _connectionStringBuilder = new();
     private ConnectionState _state = ConnectionState.Closed;
+    private bool _readOnly;
 
     internal HostServerConnectionManager? HostServerManager { get; private set; }
 
@@ -22,9 +23,11 @@ public class Db2Connection : DbConnection
 
     public override string DataSource => _connectionStringBuilder.Server;
 
-    public override string ServerVersion => "V7R4M0"; // Defaulting to IBM i 7.4
+    public override string ServerVersion => "V7R4M0";
 
     public override ConnectionState State => _state;
+
+    public bool IsReadOnly => _readOnly || _connectionStringBuilder.ReadOnly;
 
     public Db2Connection()
     {
@@ -33,6 +36,17 @@ public class Db2Connection : DbConnection
     public Db2Connection(string connectionString)
     {
         ConnectionString = connectionString;
+    }
+
+    public void SetReadOnly(bool readOnly)
+    {
+        if (_state != ConnectionState.Open)
+            throw new InvalidOperationException("Connection is not open.");
+
+        if (!readOnly && _connectionStringBuilder.ReadOnly)
+            throw new InvalidOperationException("Cannot disable read-only on a connection opened with 'Read Only=true'.");
+
+        _readOnly = readOnly;
     }
 
     public override void ChangeDatabase(string databaseName)

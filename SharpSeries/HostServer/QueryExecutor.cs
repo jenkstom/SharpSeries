@@ -463,7 +463,27 @@ namespace SharpSeries.HostServer
                     
                     int indicatorTotal = rowCount * columnCount * indicatorSize;
                     int dataOffset = dataStart + 14 + indicatorTotal;
-                    
+
+                    if (indicatorSize > 0)
+                    {
+                        int indicatorOffset = dataStart + 14;
+                        for (int i = 0; i < rowCount; i++)
+                        {
+                            int[] rowIndicators = new int[columnCount];
+                            for (int j = 0; j < columnCount; j++)
+                            {
+                                if (indicatorOffset + indicatorSize <= reply.Length)
+                                {
+                                    rowIndicators[j] = indicatorSize == 2
+                                        ? BinaryPrimitives.ReadInt16BigEndian(reply.AsSpan(indicatorOffset, 2))
+                                        : BinaryPrimitives.ReadInt32BigEndian(reply.AsSpan(indicatorOffset, 4));
+                                }
+                                indicatorOffset += indicatorSize;
+                            }
+                            result.NullIndicators.Add(rowIndicators);
+                        }
+                    }
+
                     for (int i = 0; i < rowCount; i++)
                     {
                         if (dataOffset + rowSize > reply.Length) break;
@@ -485,7 +505,27 @@ namespace SharpSeries.HostServer
                     
                     int indicatorTotal = rowCount * columnCount * indicatorSize;
                     int dataOffset = dataStart + 20 + indicatorTotal;
-                    
+
+                    if (indicatorSize > 0)
+                    {
+                        int indicatorOffset = dataStart + 20;
+                        for (int i = 0; i < rowCount; i++)
+                        {
+                            int[] rowIndicators = new int[columnCount];
+                            for (int j = 0; j < columnCount; j++)
+                            {
+                                if (indicatorOffset + indicatorSize <= reply.Length)
+                                {
+                                    rowIndicators[j] = indicatorSize == 2
+                                        ? BinaryPrimitives.ReadInt16BigEndian(reply.AsSpan(indicatorOffset, 2))
+                                        : BinaryPrimitives.ReadInt32BigEndian(reply.AsSpan(indicatorOffset, 4));
+                                }
+                                indicatorOffset += indicatorSize;
+                            }
+                            result.NullIndicators.Add(rowIndicators);
+                        }
+                    }
+
                     for (int i = 0; i < rowCount; i++)
                     {
                         if (dataOffset + rowSize > reply.Length) break;

@@ -52,4 +52,10 @@ public class Db2ConnectionStringBuilder : DbConnectionStringBuilder
         get => TryGetValue("CCSID", out var v) && int.TryParse(v?.ToString(), out var c) ? c : 37; 
         set => this["CCSID"] = value; 
     }
+
+    public bool ReadOnly
+    {
+        get => TryGetValue("Read Only", out var v) && bool.TryParse(v?.ToString(), out var b) && b;
+        set => this["Read Only"] = value;
+    }
 }

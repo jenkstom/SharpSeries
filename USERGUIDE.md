@@ -41,13 +41,17 @@ The `Db2Connection` uses standard ADO.NET connection strings. The following para
 | **Password** | Your IBM i password | (required) |
 | **Naming** | Naming convention: `SQL` (schema.table) or `System` (library/file) | `SQL` |
 | **CCSID** | EBCDIC Character Set Identifier for string conversions | `37` (US English) |
+| **Read Only** | Set to `true` to open the connection in read-only mode. Prevents `ExecuteNonQuery` calls (INSERT, UPDATE, DELETE, DDL). | `false` |
 
 **Example:**
 ```text
 Server=192.168.1.100;User ID=MYUSER;Password=MYPASS;Naming=SQL;
 ```
 
-> **Note:** The `CONNTYPE` connection string parameter found in some IBM i drivers is silently ignored by SharpSeries. It does not affect behavior.
+**Read-only example:**
+```text
+Server=192.168.1.100;User ID=MYUSER;Password=MYPASS;Read Only=true;
+```
 
 ---
 

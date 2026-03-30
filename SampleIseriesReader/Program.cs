@@ -41,7 +41,7 @@ namespace SampleIseriesReader
             string connectionString = $"Server={system};" +
                                       $"User ID={user};" +
                                       $"Password={password};" +
-                                      $"Naming=SQL;CONNTYPE=2";      // SQL naming (schema.table)
+                                      $"Naming=SQL;Read Only=true";
 
             Console.WriteLine("Connecting to IBM iSeries in read-only mode...");
 

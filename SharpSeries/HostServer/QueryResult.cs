@@ -6,6 +6,7 @@ namespace SharpSeries.HostServer
         public int RowSize;
         public List<ColumnDef> Columns = new();
         public List<byte[]> Rows = new();
+        public List<int[]> NullIndicators = new();
     }
 
     public class ColumnDef

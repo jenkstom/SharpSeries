@@ -91,6 +91,7 @@ catch
 | **Database**| RDB name (system name)                           | *(empty)*        |
 | **Naming**  | `SQL` (schema.table) or `System` (library/file)  | `SQL`            |
 | **CCSID**   | EBCDIC character set identifier                  | `37` (US English)|
+| **Read Only** | `true` to prevent write operations              | `false`          |
 
 ```text
 Server=192.168.1.100;User ID=MYUSER;Password=MYPASS;Naming=SQL;
