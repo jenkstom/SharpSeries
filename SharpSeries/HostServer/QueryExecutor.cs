@@ -27,16 +27,16 @@ namespace SharpSeries.HostServer
         /// </summary>
         public static void WritePrepareRequest(Memory<byte> buffer, int rpbId, string sql, string statementName, out int length)
         {
-            // SQL statements over DRDA must be encoded in UTF-16 Big Endian.
-            var sqlBytes = System.Text.Encoding.BigEndianUnicode.GetBytes(sql);
-            int sqlLL = 12 + sqlBytes.Length; // 12 bytes overhead for the LLCP header
+            // SQL statements over DRDA must be encoded in EBCDIC.
+            var sqlBytes = CcsidConverter.GetBytes(37, sql);
+            int sqlLL = 10 + sqlBytes.Length; // 10 bytes: 4 (LL) + 2 (CP) + 2 (CCSID) + 2 (Length)
             
             // Resource names like Statement IDs and Cursor IDs are strictly EBCDIC, 10 bytes, space-padded
             var stmtNameBytes = CcsidConverter.GetBytes(37, statementName.PadRight(10, ' ').Substring(0, 10));
             int stmtNameLL = 10 + stmtNameBytes.Length;
 
-            int parms = 4; // We are sending 4 specific parameters in this request
-            length = 40 + sqlLL + stmtNameLL + 7 + 7; // Total packet length equation
+            int parms = 4; // Added Statement Type
+            length = 40 + sqlLL + stmtNameLL + 7 + 8; // Total packet length equation
             
             // --- 20-Byte Standard Request Header ---
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(0, 4), (uint)length);
@@ -48,8 +48,8 @@ namespace SharpSeries.HostServer
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(18, 2), 0x1803); // Request Action: Prepare & Describe
             
             // --- 20-Byte Prepare Template ---
-            // ORS Bitmap - 0x88020000 = Return Immediate, Request Data Format, Request Extended Columns
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(20, 4), 0x88020000); 
+            // ORS Bitmap - 0x8A000000 = Return Immediate, Request Data Format, SQLCA
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(20, 4), 0x8A000000); 
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(24, 4), 0);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(28, 2), 1);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(30, 2), 1);
@@ -68,23 +68,24 @@ namespace SharpSeries.HostServer
             stmtNameBytes.CopyTo(buffer.Span.Slice(offset+10, stmtNameBytes.Length));
             offset += stmtNameLL;
 
-            // P2: 0x3831 Extended SQL Statement Text
+            // P2: 0x3807 SQL Statement Text
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), (uint)sqlLL);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3831);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 13488); // String CCSID: UTF-16 BE (13488)
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset+8, 4), (uint)sqlBytes.Length);
-            sqlBytes.CopyTo(buffer.Span.Slice(offset+12, sqlBytes.Length));
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3807);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 37); // String CCSID: EBCDIC
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+8, 2), (ushort)sqlBytes.Length);
+            sqlBytes.CopyTo(buffer.Span.Slice(offset+10, sqlBytes.Length));
             offset += sqlLL;
 
             // P3: 0x380A Describe Option
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), 7);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x380A);
             buffer.Span[offset+6] = 0xD5; offset += 7; // 0xD5 requests detailed type info
-
-            // P4: 0x3829 Extended Column Descriptor
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), 7);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3829);
-            buffer.Span[offset+6] = 0xF1; offset += 7;
+            
+            // P4: 0x3812 Statement Type
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), 8);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3812);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 0); // 0 = Normal / Auto
+            offset += 8;
         }
 
         /// <summary>
@@ -171,8 +172,8 @@ namespace SharpSeries.HostServer
         public static void WriteExecuteOrOpenAndDescribe(Memory<byte> buffer, int rpbId, string sql, string cursorName, out int length)
         {
             // Similar mapping to Prepare, with combined options logic.
-            var sqlBytes = System.Text.Encoding.BigEndianUnicode.GetBytes(sql);
-            int sqlLL = 12 + sqlBytes.Length;
+            var sqlBytes = CcsidConverter.GetBytes(37, sql);
+            int sqlLL = 10 + sqlBytes.Length;
 
             var cursorNameBytes = CcsidConverter.GetBytes(37, cursorName.PadRight(10, ' ').Substring(0, 10));
             int cursorNameLL = 10 + cursorNameBytes.Length;
@@ -206,12 +207,12 @@ namespace SharpSeries.HostServer
             
             int offset = 40;
 
-            // 0x3831 Extended SQL Statement Text
+            // 0x3807 SQL Statement Text
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), (uint)sqlLL);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3831);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 13488);
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset+8, 4), (uint)sqlBytes.Length);
-            sqlBytes.CopyTo(buffer.Span.Slice(offset+12, sqlBytes.Length));
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3807);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 37);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+8, 2), (ushort)sqlBytes.Length);
+            sqlBytes.CopyTo(buffer.Span.Slice(offset+10, sqlBytes.Length));
             offset += sqlLL;
 
             // 0x380B Cursor Name
@@ -261,8 +262,8 @@ namespace SharpSeries.HostServer
         /// </summary>
         public static void WritePrepareAndExecute(Memory<byte> buffer, int rpbId, string sql, string statementName, out int length)
         {
-            var sqlBytes = System.Text.Encoding.BigEndianUnicode.GetBytes(sql);
-            int sqlLL = 12 + sqlBytes.Length;
+            var sqlBytes = CcsidConverter.GetBytes(37, sql);
+            int sqlLL = 10 + sqlBytes.Length; // 10 bytes: 4 (LL) + 2 (CP) + 2 (CCSID) + 2 (Length)
 
             var stmtNameBytes = CcsidConverter.GetBytes(37, statementName.PadRight(10, ' ').Substring(0, 10));
             int stmtNameLL = 10 + stmtNameBytes.Length;
@@ -299,12 +300,12 @@ namespace SharpSeries.HostServer
             stmtNameBytes.CopyTo(buffer.Span.Slice(offset+10, stmtNameBytes.Length));
             offset += stmtNameLL;
 
-            // 0x3831 Extended SQL Statement Text
+            // 0x3807 SQL Statement Text
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset, 4), (uint)sqlLL);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3831);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 13488);
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(offset+8, 4), (uint)sqlBytes.Length);
-            sqlBytes.CopyTo(buffer.Span.Slice(offset+12, sqlBytes.Length));
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+4, 2), 0x3807);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+6, 2), 37);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(offset+8, 2), (ushort)sqlBytes.Length);
+            sqlBytes.CopyTo(buffer.Span.Slice(offset+10, sqlBytes.Length));
             offset += sqlLL;
         }
 
