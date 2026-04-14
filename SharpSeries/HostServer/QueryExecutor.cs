@@ -116,11 +116,11 @@ namespace SharpSeries.HostServer
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(16, 2), 20);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(18, 2), 0x1D00); // 0x1D00 Action: Create RPB
             
-            // Fire-and-forget message map (0). We don't need a response from the server acknowledging creation.
-            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(20, 4), 0x00000000); 
+            // Request server acknowledgment so we know the RPB is ready before proceeding.
+            BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(20, 4), 0x80000000);
             BinaryPrimitives.WriteUInt32BigEndian(buffer.Span.Slice(24, 4), 0);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(28, 2), 0);
-            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(30, 2), 0);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(28, 2), 1);
+            BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(30, 2), 1);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(32, 2), 0);
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(34, 2), (ushort)rpbId); // Assigning ID
             BinaryPrimitives.WriteUInt16BigEndian(buffer.Span.Slice(36, 2), 0);

@@ -397,10 +397,10 @@ public class HostServerConnectionManager
         int rpbId = id;
 
         // Step 1: Create Request Parameter Block (RPB) (0x1D00)
-        // Fire-and-forget signal allocating tracking structures on the host for this ID sequence.
         byte[] p0 = new byte[8192];
         QueryExecutor.WriteCreateRpb(p0, rpbId, stmtName, cursorName, out int len0);
         if (_stream != null) await _stream.WriteAsync(p0.AsMemory(0, len0), cancellationToken);
+        await ReceiveReplyAsync(0x2800, cancellationToken);
 
         // Step 2: Prepare and Execute (0x180D)
         // Compiles and immediately executes the provided SQL.
@@ -454,6 +454,7 @@ public class HostServerConnectionManager
         byte[] p0 = new byte[8192];
         QueryExecutor.WriteCreateRpb(p0, rpbId, stmtName, cursorName, out int len0);
         if (_stream != null) await _stream.WriteAsync(p0.AsMemory(0, len0), cancellationToken);
+        await ReceiveReplyAsync(0x2800, cancellationToken);
 
         // Step 2: Prepare & Describe (0x1803)
         // Send SQL text. Expect a reply formatted as 0x3812 (Column Types and Definitions).
