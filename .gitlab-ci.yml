@@ -1,0 +1,9 @@
+stages:          # List of stages for jobs, and their order of execution
+  - build-deploy
+
+build:
+  stage: build-deploy
+  script:
+    - dotnet build -c Release
+    - dotnet pack -c Release
+    - dotnet nuget push "SharpSeries/bin/Release/*.nupkg" --source "https://gitlab.hml.bz/api/v4/projects/$CI_PROJECT_ID/packages/nuget/index.json" --api-key $CI_JOB_TOKEN

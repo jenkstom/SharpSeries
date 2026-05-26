@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="SharpSeries.Tests/SharpSeries.Tests.csproj" />
+  <Project Path="SharpSeries/SharpSeries.csproj" />
+  <Project Path="SampleIseriesWriter/SampleIseriesWriter.csproj" />
+</Solution>
