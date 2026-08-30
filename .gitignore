@@ -482,3 +482,6 @@ $RECYCLE.BIN/
 *.swp
 .env
 .crush/
+
+# ZCode agent session artifacts
+.zcode/

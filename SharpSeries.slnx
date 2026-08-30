@@ -1,5 +1,8 @@
 <Solution>
   <Project Path="SharpSeries.Tests/SharpSeries.Tests.csproj" />
   <Project Path="SharpSeries/SharpSeries.csproj" />
+  <Project Path="SampleDataQueueReader/SampleDataQueueReader.csproj" />
+  <Project Path="SampleDataQueueWriter/SampleDataQueueWriter.csproj" />
+  <Project Path="SampleIseriesReader/SampleIseriesReader.csproj" />
   <Project Path="SampleIseriesWriter/SampleIseriesWriter.csproj" />
 </Solution>

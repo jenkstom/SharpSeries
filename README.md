@@ -1,19 +1,20 @@
 # SharpSeries
 
-[![Build & Test](https://github.com/tomdertechie/SharpSeries/actions/workflows/ci.yml/badge.svg)](https://github.com/tomdertechie/SharpSeries/actions/workflows/ci.yml)
-[![Publish to NuGet](https://github.com/tomdertechie/SharpSeries/actions/workflows/publish.yml/badge.svg)](https://github.com/tomdertechie/SharpSeries/actions/workflows/publish.yml)
+[![Build & Test](https://github.com/jenkstom/SharpSeries/actions/workflows/ci.yml/badge.svg)](https://github.com/jenkstom/SharpSeries/actions/workflows/ci.yml)
+[![Publish to NuGet](https://github.com/jenkstom/SharpSeries/actions/workflows/publish.yml/badge.svg)](https://github.com/jenkstom/SharpSeries/actions/workflows/publish.yml)
 [![NuGet](https://img.shields.io/nuget/v/SharpSeries?label=NuGet)](https://www.nuget.org/packages/SharpSeries)
 [![License: IPL-1.0](https://img.shields.io/badge/License-IPL--1.0-blue.svg)](LICENSE)
 
-**A pure C# ADO.NET data provider for IBM i Db2 (AS/400, System i).**
+**A pure C# ADO.NET data provider and data queue client for IBM i (AS/400, System i).**
 
-SharpSeries implements the DRDA wire protocol directly in managed C# — no proprietary IBM client libraries, no native dependencies, no client access licenses required. It works on any platform .NET runs on.
+SharpSeries implements the DRDA wire protocol directly in managed C# — no proprietary IBM client libraries, no native dependencies, no client access licenses required. It works on any platform .NET runs on. It also speaks the native Data Queue Host Server protocol, so you can read, write, and peek `*DTAQ` entries (FIFO, LIFO, and keyed queues) from the same package.
 
 ## Features
 
 - **Pure managed C#** — no IBM client software or native dependencies
 - **Full ADO.NET implementation** — `DbConnection`, `DbCommand`, `DbDataReader`, `DbTransaction`, `DbParameter`
 - **DRDA wire protocol** — native implementation of the Distributed Relational Database Architecture protocol
+- **IBM i data queues** — write, read (destructive), and peek `*DTAQ` entries, including keyed queues with EQ/NE/GT/GE/LT/LE key search and sender information
 - **Connection pooling** — built-in connection pool for high-throughput workloads
 - **Transaction support** — explicit commit/rollback with automatic auto-commit for standalone statements
 - **EBCDIC/CCSID support** — configurable character set conversion for international IBM i systems
@@ -81,6 +82,40 @@ catch
 }
 ```
 
+## Data Queues
+
+Read, write, and peek IBM i data queues (`*DTAQ` objects) over the native data queue host server (QZHQSSRV). The same connection string keys as `Db2Connection` are used:
+
+```csharp
+using SharpSeries.DataQueues;
+
+using var connection = new DataQueueConnection("Server=10.0.0.5;User ID=myuser;Password=mypass;");
+await connection.OpenAsync();
+
+var queue = new DataQueue(connection, "ORDERQ", library: "APPLIB");
+
+// Write an entry (string is encoded with the connection CCSID, or pass raw bytes)
+await queue.WriteAsync("Hello from SharpSeries");
+
+// Read the oldest entry: 0 = no wait, N = wait up to N seconds, -1 = wait forever
+DataQueueEntry? entry = await queue.ReadAsync(waitSeconds: 30);
+Console.WriteLine(entry?.GetString(37));
+
+// Peek without consuming, and inspect queue attributes
+DataQueueEntry? peeked = await queue.PeekAsync();
+DataQueueAttributes attrs = await queue.GetAttributesAsync();
+```
+
+Keyed queues address entries by key with a comparison operator:
+
+```csharp
+var keyed = new KeyedDataQueue(connection, "ORDERQ", "APPLIB");
+await keyed.WriteAsync(key: "CUST0042", data: orderPayload);
+KeyedDataQueueEntry? e = await keyed.ReadAsync("CUST0042", KeySearchType.Equal, waitSeconds: 10);
+```
+
+Queues must already exist on the system (create them with `CRTDTAQ`). A read with a wait time holds the connection's server session until an entry arrives or the wait expires, so give concurrent long-waiting consumers their own `DataQueueConnection`.
+
 ## Connection Strings
 
 | Parameter   | Description                                      | Default          |
@@ -108,10 +143,16 @@ SharpSeries/
 │   ├── Db2Parameter
 │   ├── Db2Transaction
 │   └── Db2ProviderFactory
-├── HostServer/        # DRDA host server communication
-│   ├── HostServerConnectionManager
+├── DataQueues/        # IBM i data queue API (FIFO/LIFO/keyed)
+│   ├── DataQueueConnection
+│   ├── DataQueue / KeyedDataQueue
+│   └── DataQueueEntry / DataQueueAttributes
+├── HostServer/        # Host server wire protocols
+│   ├── HostServerSessionBase (shared sign-on/mapper)
+│   ├── HostServerConnectionManager (SQL)
+│   ├── DataQueueConnectionManager (data queues)
 │   ├── QueryExecutor
-│   └── QueryResult
+│   └── DataQueueExecutor
 ├── Network/           # Network stream handling
 ├── Security/          # DES password encryption
 ├── Encoding/          # CCSID/EBCDIC conversion
@@ -134,7 +175,7 @@ Db2Logger.LogAction = (level, message) => Console.WriteLine($"[{level}] {message
 ## Requirements
 
 - **.NET 10.0+**
-- **IBM i** system with DRDA host server accessible (port 449 for server mapper, typically port 8471 for the database host server)
+- **IBM i** system with host servers accessible (port 449 for the server mapper; typically port 8471 for the database host server and 8474 for the data queue host server)
 
 ## Documentation
 
@@ -142,12 +183,14 @@ See the [User Guide](USERGUIDE.md) for detailed documentation on connection stri
 
 ## Samples
 
-Two sample applications are included:
+Four sample applications are included:
 
 - **SampleIseriesReader** — connects and runs a configurable SELECT query
 - **SampleIseriesWriter** — demonstrates CREATE TABLE → INSERT → SELECT → DROP TABLE
+- **SampleDataQueueWriter** — writes entries to a FIFO and a keyed data queue
+- **SampleDataQueueReader** — reads and peeks entries, showing sender information and attributes
 
-Both use a `.env` file for credentials:
+Both pairs use a `.env` file for credentials:
 
 ```text
 DB2_SYSTEM=as400.example.com
@@ -155,10 +198,12 @@ DB2_USER=MYUSER
 DB2_PASSWORD=MYPASSWORD
 ```
 
+The data queue samples additionally read `DTAQ_QUEUE`, `DTAQ_KEYED_QUEUE`, and `DTAQ_LIBRARY`.
+
 ## Building from Source
 
 ```bash
-git clone https://github.com/tomdertechie/SharpSeries.git
+git clone https://github.com/jenkstom/SharpSeries.git
 cd SharpSeries
 dotnet build
 dotnet test

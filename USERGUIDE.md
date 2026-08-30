@@ -10,9 +10,10 @@ Welcome to the **SharpSeries** driver user guide. This library is a high-perform
 5. [Reading Data](#reading-data)
 6. [Transactions](#transactions)
 7. [Auto-Commit Behavior](#auto-commit-behavior)
-8. [iSeries Specifics](#iseries-specifics)
-9. [Samples](#samples)
-10. [License](#license)
+8. [IBM i Data Queues](#ibm-i-data-queues)
+9. [iSeries Specifics](#iseries-specifics)
+10. [Samples](#samples)
+11. [License](#license)
 
 ---
 
@@ -161,6 +162,96 @@ When an explicit transaction is started via `BeginTransaction()`, auto-commit is
 
 ---
 
+## IBM i Data Queues
+
+Besides SQL, SharpSeries speaks the native IBM i **Data Queue Host Server** protocol
+(QZHQSSRV, service `as-dtaq`, typically port 8474). Data queues (`*DTAQ` objects) are the
+fastest way to pass data between jobs asynchronously, and the API lives in the
+`SharpSeries.DataQueues` namespace.
+
+Data queues are not SQL objects, so they are reached through `DataQueueConnection`
+rather than `Db2Connection` — but the connection string uses the same keys
+(`Server`, `User ID`, `Password`, `CCSID`).
+
+### Writing and Reading Entries (FIFO/LIFO)
+
+```csharp
+using SharpSeries.DataQueues;
+
+using var connection = new DataQueueConnection("Server=myhost;User ID=MYUSER;Password=MYPASS;");
+await connection.OpenAsync();
+
+var queue = new DataQueue(connection, "ORDERQ", library: "APPLIB");
+
+// Write: string entries are encoded with the connection CCSID; raw bytes are also accepted.
+await queue.WriteAsync("Hello from SharpSeries");
+await queue.WriteAsync(new byte[] { 0x01, 0x02, 0x03 });
+
+// Read removes the oldest entry. waitSeconds: 0 = no wait, N = wait N seconds, -1 = wait forever.
+// Returns null when no entry arrived within the wait period.
+DataQueueEntry? entry = await queue.ReadAsync(waitSeconds: 30);
+if (entry != null)
+{
+    Console.WriteLine(entry.GetString(connection.Ccsid));
+}
+
+// Peek reads the oldest entry without removing it.
+DataQueueEntry? peeked = await queue.PeekAsync();
+```
+
+### Keyed Queues
+
+Keyed queues store each entry under a key (1-256 bytes). Reads select an entry by key
+comparison — `Equal`, `NotEqual`, `LessThan`, `LessThanOrEqual`, `GreaterThan`,
+`GreaterThanOrEqual` (keys compare as unsigned byte strings; matching entries come
+back first-in, first-out):
+
+```csharp
+var keyed = new KeyedDataQueue(connection, "ORDERQK", "APPLIB");
+
+await keyed.WriteAsync(key: "CUST0042", data: "Order payload");
+
+KeyedDataQueueEntry? e = await keyed.ReadAsync("CUST0042", KeySearchType.Equal, waitSeconds: 10);
+if (e != null)
+{
+    Console.WriteLine($"{e.GetKeyString(connection.Ccsid)}: {e.GetString(connection.Ccsid)}");
+}
+```
+
+### Sender Information and Attributes
+
+If the queue was created with `SENDERINF(*YES)`, every entry carries information about
+the job that wrote it:
+
+```csharp
+if (entry.SenderInfo != null)
+{
+    Console.WriteLine($"Sent by {entry.SenderInfo.JobNumber}/{entry.SenderInfo.UserName}/{entry.SenderInfo.JobName}");
+}
+```
+
+`GetAttributesAsync` reports the queue's type, limits, and description:
+
+```csharp
+DataQueueAttributes attrs = await queue.GetAttributesAsync();
+Console.WriteLine($"{attrs.QueueType}, max entry {attrs.MaxEntryLength} bytes");
+```
+
+### Behavior Notes
+
+- **Queues must exist first** — create them with the `CRTDTAQ` command; the driver only
+  reads, writes, and peeks entries.
+- **Waiting reads hold the session** — a `ReadAsync` with a wait time occupies the
+  connection's server session until an entry arrives or the wait expires. Give each
+  concurrent long-waiting consumer its own `DataQueueConnection`.
+- **Sessions are pooled** — closing a `DataQueueConnection` returns the physical session
+  to a pool, exactly like `Db2Connection`.
+- **Errors** — server rejections surface as `DataQueueException` with the raw
+  `ReturnCode` and, when available, the CPF `MessageId` (e.g. `CPF9801` when the queue
+  does not exist).
+
+---
+
 ## iSeries Specifics
 
 ### Naming Conventions
@@ -182,7 +273,7 @@ Because the IBM i stores text data natively in EBCDIC, all string conversions ov
 
 ## Samples
 
-Two sample applications are included:
+Four sample applications are included:
 
 ### SampleIseriesReader
 
@@ -196,7 +287,19 @@ A read/write sample that demonstrates the full DML lifecycle:
 3. **SELECT** — reads the row back
 4. **DROP TABLE** — cleans up
 
-Both samples use a `.env` file in the project directory for credentials:
+### SampleDataQueueWriter
+
+Connects to the data queue server and writes entries to a FIFO queue
+(`SHARPDQ` by default) and keyed entries to a keyed queue (`SHARPKDQ` by default),
+then prints both queues' attributes. Configure via `DTAQ_QUEUE`, `DTAQ_KEYED_QUEUE`,
+and `DTAQ_LIBRARY`.
+
+### SampleDataQueueReader
+
+Drains a FIFO queue with no-wait reads, peeks and reads keyed entries by key, and
+prints sender information when the queue saves it.
+
+The samples use a `.env` file in the project directory for credentials:
 
 ```text
 DB2_SYSTEM=as400.example.com

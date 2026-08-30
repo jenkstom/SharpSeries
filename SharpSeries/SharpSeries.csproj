@@ -11,12 +11,16 @@
     <Description>Pure C# ADO.NET data provider for IBM i Db2 (AS/400, System i). Implements the DRDA wire protocol directly in managed C# with no proprietary IBM client dependencies.</Description>
     <PackageLicenseExpression>IPL-1.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageProjectUrl>https://github.com/tomdertechie/SharpSeries</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/tomdertechie/SharpSeries.git</RepositoryUrl>
+  <PackageProjectUrl>https://github.com/jenkstom/SharpSeries</PackageProjectUrl>
+  <RepositoryUrl>https://github.com/jenkstom/SharpSeries.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>IBM;iSeries;AS400;Db2;DRDA;ADO.NET;database;provider</PackageTags>
     <PackageReleaseNotes>Initial release</PackageReleaseNotes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SharpSeries.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
